@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+#  app:
+#    build: ./docker/go
+#    container_name: cargo_go
+#    restart: unless-stopped
+#    tty: true
+#    ports:
+#        - "7079:4000"
+  rabbit:
+    image: rabbitmq:3-management
+    container_name: cargo_rabbit
+    volumes:
+      - ./docker/rabbit:/var/lib/rabbitmq
+    ports:
+      - "7079:5672"
+      - "7080:15672"
+    networks:
+      - cargo
+
+
+networks:
+  cargo:
+    name: cargo
+    external: true

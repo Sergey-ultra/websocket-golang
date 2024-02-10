@@ -2,9 +2,11 @@ package ws
 
 import (
 	"github.com/gorilla/websocket"
+	"websocket/app/internal/rabbitmq"
 )
 
 type client struct {
+	UserId  string
 	socket  *websocket.Conn
 	receive chan []byte
 	room    *room
@@ -17,7 +19,11 @@ func (c *client) read() {
 		if err != nil {
 			return
 		}
-		c.room.forward <- msg
+
+		c.room.messages <- &rabbitmq.MessageWrapper{
+			Message: msg,
+			UserId:  c.UserId,
+		}
 	}
 }
 
