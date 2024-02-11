@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -29,12 +31,30 @@ func main() {
 }
 
 func start() {
-	r := ws.NewRoom()
+	room := ws.NewRoom()
 
 	http.Handle("/", &templateHandler{filename: "chat.html"})
-	http.Handle("/ws", r)
+	http.Handle("/ws", room)
 
-	go r.Run()
+	go room.Run()
+
+	fmt.Println("Start listening a RabbitMq queue")
+
+	var rabbitClient rabbitmq.RabbitClient
+
+	var handler = func(data []byte) error {
+		var message *rabbitmq.MessageWrapper
+
+		err := json.Unmarshal(data, &message)
+		if err != nil {
+			return err
+		}
+
+		room.AddMessage(message)
+		return nil
+	}
+
+	go rabbitClient.Consume("websocket", handler)
 
 	var addr = flag.String("addr", ":8091", "The address of application")
 	flag.Parse()
@@ -42,6 +62,4 @@ func start() {
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
-
-	go rabbitmq.ReadFromRabbitMq()
 }

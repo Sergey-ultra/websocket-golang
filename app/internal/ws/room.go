@@ -41,13 +41,8 @@ func (r *room) Run() {
 	}
 }
 
-func (r *room) ReadFromRabbitMq(rabbitMq *rabbitmq.RabbitMq) {
-	for {
-		select {
-		case msg := <-rabbitMq.Messages:
-			r.messages <- msg
-		}
-	}
+func (r *room) AddMessage(msg *rabbitmq.MessageWrapper) {
+	r.messages <- msg
 }
 
 const (
