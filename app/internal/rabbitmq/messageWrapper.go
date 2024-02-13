@@ -1,6 +1,6 @@
 package rabbitmq
 
 type MessageWrapper struct {
-	Message []byte
-	UserId  string
+	Message string
+	UserId  int
 }

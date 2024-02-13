@@ -1,19 +1,20 @@
 package rabbitmq
 
 import (
-	"encoding/json"
 	"fmt"
+	uuid "github.com/satori/go.uuid"
 	"github.com/streadway/amqp"
+	"websocket/app/internal/config"
 )
 
-type RabbitQueue struct {
-	Messages chan *MessageWrapper
-}
-
-func (rabbitQueue *RabbitQueue) ReadFromRabbitMq() {
+func ConsumeFromRabbitMq(queue string, handler func(data []byte) error) {
 	fmt.Println("Consume Application")
 
-	conn, err := amqp.Dial("amqp://guest:guest@0.0.0.0:7079")
+	cnf := config.GetConfig()
+	rabbitConfig := cnf.RabbitConfig
+	c := fmt.Sprintf("amqp://%s:%s@%s:%s/", rabbitConfig.Username, rabbitConfig.Password, rabbitConfig.Host, rabbitConfig.Port)
+
+	conn, err := amqp.Dial(c)
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
@@ -30,8 +31,8 @@ func (rabbitQueue *RabbitQueue) ReadFromRabbitMq() {
 	defer ch.Close()
 
 	messages, err := ch.Consume(
-		"websocket",
-		"",
+		queue,
+		uuid.NewV4().String(),
 		true,
 		false,
 		false,
@@ -46,14 +47,11 @@ func (rabbitQueue *RabbitQueue) ReadFromRabbitMq() {
 	forever := make(chan bool)
 
 	go func() {
-		var message *MessageWrapper
-
 		for d := range messages {
-			err := json.Unmarshal(d.Body, &message)
+			err := handler(d.Body)
 			if err != nil {
 				fmt.Println(err)
 			}
-			rabbitQueue.Messages <- message
 		}
 	}()
 

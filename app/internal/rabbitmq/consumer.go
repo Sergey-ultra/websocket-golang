@@ -31,15 +31,16 @@ func (rcl *RabbitClient) connect(isRec, reconnect bool) (*amqp.Connection, error
 	}
 
 	cnf := config.GetConfig()
-	rabbitConfig := cnf.Rabbit
+	rabbitConfig := cnf.RabbitConfig
+
 	var c string
-	fmt.Printf("%s - %s- %s- %s", rabbitConfig.Username, rabbitConfig.Password, rabbitConfig.Host, rabbitConfig.Port)
 
 	if rabbitConfig.Username == "" {
 		c = fmt.Sprintf("amqp://%s:%s/", rabbitConfig.Host, rabbitConfig.Port)
 	} else {
 		c = fmt.Sprintf("amqp://%s:%s@%s:%s/", rabbitConfig.Username, rabbitConfig.Password, rabbitConfig.Host, rabbitConfig.Port)
 	}
+
 	conn, err := amqp.Dial(c)
 	if err != nil {
 		log.Printf("\r\n--- could not create a conection ---\r\n")
@@ -98,7 +99,7 @@ func (rcl *RabbitClient) channel(isRec, recreate bool) (*amqp.Channel, error) {
 	}
 }
 
-func (rcl *RabbitClient) Consume(queue string, f func(data []byte) error) {
+func (rcl *RabbitClient) Consume(queue string, handler func(data []byte) error) {
 	for {
 		for {
 			_, err := rcl.channel(true, true)
@@ -140,24 +141,30 @@ func (rcl *RabbitClient) Consume(queue string, f func(data []byte) error) {
 
 		shouldBreak := false
 		for {
+			fmt.Println("messages")
 			if shouldBreak {
 				break
 			}
+			fmt.Println("messages")
 			select {
 			case _ = <-connBlocked:
 				log.Println("--- connection blocked ---")
+				fmt.Println("--- connection blocked ---")
 				shouldBreak = true
 				break
 			case err = <-connClose:
 				log.Println("--- connection closed ---")
+				fmt.Println("--- connection closed ---")
 				shouldBreak = true
 				break
 			case err = <-chClose:
 				log.Println("--- channel closed ---")
+				fmt.Println("--- channel closed ---")
 				shouldBreak = true
 				break
 			case d := <-messages:
-				err := f(d.Body)
+				err := handler(d.Body)
+				fmt.Println(err)
 				if err != nil {
 					_ = d.Ack(false)
 					break

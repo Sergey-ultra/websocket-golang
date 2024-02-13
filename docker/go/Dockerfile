@@ -4,15 +4,15 @@ WORKDIR /usr/local/src
 
 RUN apk --no-cache add bash gcc gettext musl-dev
 
-COPY ["app/go.mod", "app/go.sum", "./"]
+COPY ["./../../go.mod", "./../..go.sum", "./"]
 RUN go mod download
 
-COPY app ./
+COPY ./ ./
 RUN go build -o ./bin/app   app/cmd/main.go
 
 FROM alpine AS runner
 
 COPY --from=builder /usr/local/src/bin/app /
-#COPY app/configs/config.yaml /config.yaml
+#COPY app/configs/conf.yml /conf.yml
 
 CMD ["/app"]

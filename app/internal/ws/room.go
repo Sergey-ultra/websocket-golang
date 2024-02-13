@@ -1,29 +1,32 @@
 package ws
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"strconv"
 	"websocket/app/internal/rabbitmq"
 )
 
-type room struct {
-	clients  map[string]*client
+type webSocket struct {
+	clients  map[int]*client
 	join     chan *client
 	leave    chan *client
 	messages chan *rabbitmq.MessageWrapper
 }
 
-func NewRoom() *room {
-	return &room{
+func NewWebSocketServer() *webSocket {
+	return &webSocket{
 		messages: make(chan *rabbitmq.MessageWrapper),
 		join:     make(chan *client),
 		leave:    make(chan *client),
-		clients:  make(map[string]*client),
+		clients:  make(map[int]*client),
 	}
 }
 
-func (r *room) Run() {
+func (r *webSocket) Run() {
 	for {
 		select {
 		case client := <-r.join:
@@ -33,16 +36,33 @@ func (r *room) Run() {
 			close(client.receive)
 		case msg := <-r.messages:
 			for userId, client := range r.clients {
+				fmt.Println(userId, msg.UserId)
 				if userId == msg.UserId {
-					client.receive <- msg.Message
+					client.receive <- []byte(msg.Message)
 				}
 			}
 		}
 	}
 }
 
-func (r *room) AddMessage(msg *rabbitmq.MessageWrapper) {
-	r.messages <- msg
+func (r *webSocket) ListenRabbitQueue() {
+	fmt.Println("Start listening a RabbitMq queue")
+
+	var handler = func(data []byte) error {
+		var message *rabbitmq.MessageWrapper
+
+		err := json.Unmarshal(data, &message)
+		if err != nil {
+			return err
+		}
+
+		r.messages <- message
+		return nil
+	}
+	rabbitmq.ConsumeFromRabbitMq("websocket", handler)
+
+	//var rabbitClient rabbitmq.RabbitClient
+	//rabbitClient.Consume("websocket", handler)
 }
 
 const (
@@ -55,14 +75,19 @@ var upgrader = &websocket.Upgrader{
 	WriteBufferSize: socketBufferSize,
 }
 
-func (r *room) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r *webSocket) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	socket, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		log.Fatal("ServeHTTP:", err)
 	}
 
+	userId, err := strconv.Atoi(req.URL.Query().Get("userId"))
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	client := &client{
-		UserId:  req.URL.Query().Get("userId"),
+		UserId:  userId,
 		socket:  socket,
 		receive: make(chan []byte, messageBufferSize),
 		room:    r,

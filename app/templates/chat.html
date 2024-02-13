@@ -42,7 +42,7 @@
         if (!window["WebSocket"]) {
             alert("Error: Your browser does not support web sockets.")
         } else {
-            socket = new WebSocket("ws://{{.Host}}/ws?userId=1");
+            socket = new WebSocket("ws://{{.Host}}/ws?userId=89");
             socket.onclose = function() {
                 console.log("Connection has been closed.");
             }
